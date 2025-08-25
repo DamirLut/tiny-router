@@ -1,0 +1,25 @@
+.spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8;
+  opacity: 0.85;
+}
+
+.spinnerCircle {
+  border-radius: 50%;
+  border: 3px solid #d1d1d6;
+  border-top-color: #007aff;
+  animation: tr-spin 0.7s linear infinite;
+  box-sizing: border-box;
+}
+
+@keyframes tr-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
