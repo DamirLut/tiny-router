@@ -85,11 +85,11 @@ function buildTransition({
 
 export const RouterProvider: React.FC<{
   routes: RouteConfig[];
-  disablePreview?: boolean;
   notFound?: React.ReactNode;
   /** Element shown globally while any lazy route first-loads. */
   lazySpinner?: React.ReactNode;
-}> = ({ routes, disablePreview, notFound, lazySpinner }) => {
+  children?: React.ReactNode;
+}> = ({ routes, notFound, lazySpinner, children }) => {
   const [currentPath, setCurrentPath] = useState(parseHash());
   const [transition, setTransition] = useState<RouterViewTransition | null>(
     null,
@@ -129,11 +129,7 @@ export const RouterProvider: React.FC<{
         notFound,
       });
       setTransition(tr);
-      if (
-        !disablePreview &&
-        actionRef.current !== "replace" &&
-        tr.fromElement
-      ) {
+      if (actionRef.current !== "replace" && tr.fromElement) {
         setAnimFrom({
           key: oldPath,
           node: tr.fromElement,
@@ -144,7 +140,7 @@ export const RouterProvider: React.FC<{
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, [routes, disablePreview, notFound, resolveRendered]);
+  }, [routes, notFound, resolveRendered]);
 
   // Scroll restoration
   useEffect(() => {
@@ -210,23 +206,19 @@ export const RouterProvider: React.FC<{
   }, [animFrom, activeElement, currentPath]);
 
   useEffect(() => {
-    if (disablePreview || !animFrom) return;
+    if (!animFrom) return;
     const t = setTimeout(
       () => setAnimFrom((c) => (c === animFrom ? null : c)),
       320,
     );
     return () => clearTimeout(t);
-  }, [animFrom, disablePreview]);
+  }, [animFrom]);
 
   return (
     <RouterContext.Provider value={ctx}>
+      {children}
       {isLazyLoading && lazySpinner}
-      <PageStack
-        pages={pages}
-        disablePreview={disablePreview}
-        transition={transition}
-        animFrom={animFrom}
-      />
+      <PageStack pages={pages} transition={transition} animFrom={animFrom} />
     </RouterContext.Provider>
   );
 };
@@ -234,7 +226,7 @@ export const RouterProvider: React.FC<{
 // Helper to determine animation class for a page wrapper
 interface AnimClassArgs {
   page: { state: "active" | "out"; key: string; node: React.ReactNode };
-  previewDisabled: boolean;
+
   transition: RouterViewTransition | null;
   animFrom: {
     key: string;
@@ -243,13 +235,8 @@ interface AnimClassArgs {
   } | null;
 }
 
-function getAnimClass({
-  page,
-  previewDisabled,
-  transition,
-  animFrom,
-}: AnimClassArgs): string {
-  if (previewDisabled || !transition) return "";
+function getAnimClass({ page, transition, animFrom }: AnimClassArgs): string {
+  if (!transition) return "";
   const action = transition.action;
   if (page.state === "active") {
     if (action === "push") return styles.slideIn;
@@ -305,19 +292,17 @@ function useLazyResolver(args: {
 
 const PageStack: React.FC<{
   pages: Array<{ key: string; node: React.ReactNode; state: "active" | "out" }>;
-  disablePreview?: boolean;
   transition: RouterViewTransition | null;
   animFrom: {
     key: string;
     node: React.ReactNode;
     action: RouterHistoryAction;
   } | null;
-}> = ({ pages, disablePreview, transition, animFrom }) => (
+}> = ({ pages, transition, animFrom }) => (
   <div className={styles.container}>
     {pages.map((p) => {
       const animClass = getAnimClass({
         page: p,
-        previewDisabled: !!disablePreview,
         transition,
         animFrom,
       });
