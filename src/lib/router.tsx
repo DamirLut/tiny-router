@@ -6,91 +6,68 @@ import React, {
   useState,
 } from "react";
 
+import { PageStack } from "./internal/animation";
+import type { RouterRuntime } from "./internal/hooks";
+import {
+  useHashListener,
+  useImmediateNavigation,
+  useOutgoingCleanup,
+  useScrollRestore,
+} from "./internal/hooks";
+import { applyHistoryMutation, recordScroll } from "./internal/nav";
 import { RouterContext } from "./context";
 import { matchRoute } from "./match";
 import type {
+  NavigationOptions,
   RouteConfig,
   RouterContextType,
   RouterHistoryAction,
   RouterViewTransition,
 } from "./types";
+import { parseHash } from "./utils";
 
 import "./global.css";
 
-const parseHash = (): string => window.location.hash.replace(/^#/, "") || "/";
-
-// --- helpers kept outside component to keep RouterProvider lean ---
-function recordScroll(
-  store: React.MutableRefObject<Record<string, number>>,
-  path: string,
-) {
-  try {
-    const sc =
-      window.scrollY ||
-      document.documentElement.scrollTop ||
-      document.body.scrollTop ||
-      0;
-    store.current[path] = sc;
-  } catch {
-    /* ignore */
-  }
-}
-
-function applyHistoryMutation(
-  historyRef: React.MutableRefObject<string[]>,
-  actionRef: React.MutableRefObject<RouterHistoryAction>,
-  newPath: string,
-) {
-  switch (actionRef.current) {
-    case "push":
-      historyRef.current.push(newPath);
-      break;
-    case "replace":
-      historyRef.current[historyRef.current.length - 1] = newPath;
-      break;
-    case "back":
-      historyRef.current.pop();
-      break;
-  }
-  // Future user hash changes are considered a pop (browser back/forward)
-  actionRef.current = "pop";
-}
-
-interface BuildTransitionArgs {
-  routes: RouteConfig[];
-  fromPath: string;
-  toPath: string;
-  action: RouterHistoryAction;
-  resolveRendered: (r: RouteConfig) => React.ReactNode;
-  notFound?: React.ReactNode;
-}
-function buildTransition({
-  routes,
-  fromPath,
-  toPath,
-  action,
-  resolveRendered,
-  notFound,
-}: BuildTransitionArgs): RouterViewTransition {
-  const [toRoute] = matchRoute(toPath, routes);
-  const [fromRoute] = matchRoute(fromPath, routes);
+// runtime builder hook
+function useRouterRuntime(
+  base: Pick<
+    RouterRuntime,
+    | "routes"
+    | "notFound"
+    | "resolveRendered"
+    | "skipNextHashRef"
+    | "currentPathRef"
+    | "historyRef"
+    | "actionRef"
+    | "setCurrentPath"
+    | "scrollPositionsRef"
+    | "customAnimRef"
+    | "setTransition"
+    | "setAnimFrom"
+  >,
+): RouterRuntime {
   return {
-    from: fromPath,
-    to: toPath,
-    action,
-    fromElement: fromRoute ? resolveRendered(fromRoute) : notFound,
-    toElement: toRoute ? resolveRendered(toRoute) : notFound,
-  };
+    ...base,
+    recordScroll,
+    applyHistoryMutation,
+  } as RouterRuntime;
 }
 
-export const RouterProvider: React.FC<{
+interface RouterProviderProps {
   routes: RouteConfig[];
   notFound?: React.ReactNode;
-  /** Element shown globally while any lazy route first-loads. */
-  lazySpinner?: React.ReactNode;
+  lazySpinner?: React.ReactNode; // Element shown globally while any lazy route first-loads.
   children?: React.ReactNode;
-}> = ({ routes, notFound, lazySpinner, children }) => {
+}
+
+export const RouterProvider: React.FC<RouterProviderProps> = ({
+  routes,
+  notFound,
+  lazySpinner,
+  children,
+}: RouterProviderProps) => {
   const [currentPath, setCurrentPath] = useState(parseHash());
+  const currentPathRef = useRef(currentPath);
   const [transition, setTransition] = useState<RouterViewTransition | null>(
     null,
   );
@@ -101,6 +78,7 @@ export const RouterProvider: React.FC<{
   const [isLazyLoading, setIsLazyLoading] = useState(false);
   const historyRef = useRef<string[]>([parseHash()]);
   const actionRef = useRef<RouterHistoryAction>("push");
+  const skipNextHashRef = useRef(false);
   const scrollPositionsRef = useRef<Record<string, number>>({});
   const [animFrom, setAnimFrom] = useState<{
     key: string;
@@ -112,57 +90,36 @@ export const RouterProvider: React.FC<{
     (r: RouteConfig): React.ReactNode => resolvedLazy[r.path] ?? r.element,
     [resolvedLazy],
   );
+  // Per-navigation custom animation override (consumed once at transition creation)
+  const customAnimRef = useRef<NavigationOptions["transition"] | undefined>(
+    undefined,
+  );
 
-  // Core hashchange handler kept small by delegating to helpers
-  useEffect(() => {
-    const onHashChange = () => {
-      const newPath = parseHash();
-      const oldPath = historyRef.current.at(-1) || "";
-      recordScroll(scrollPositionsRef, oldPath);
-      setCurrentPath(newPath);
-      const tr = buildTransition({
-        routes,
-        fromPath: oldPath,
-        toPath: newPath,
-        action: actionRef.current,
-        resolveRendered,
-        notFound,
-      });
-      setTransition(tr);
-      if (actionRef.current !== "replace" && tr.fromElement) {
-        setAnimFrom({
-          key: oldPath,
-          node: tr.fromElement,
-          action: actionRef.current,
-        });
-      }
-      applyHistoryMutation(historyRef, actionRef, newPath);
-    };
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, [routes, notFound, resolveRendered]);
+  // Wire hashchange listener via hook
+  const runtime = useRouterRuntime({
+    routes,
+    notFound,
+    resolveRendered,
+    skipNextHashRef,
+    currentPathRef,
+    historyRef,
+    actionRef,
+    setCurrentPath,
+    scrollPositionsRef,
+    customAnimRef,
+    setTransition,
+    setAnimFrom,
+  });
+  useHashListener(runtime);
 
   // Scroll restoration
-  useEffect(() => {
-    const pos = scrollPositionsRef.current[currentPath];
-    requestAnimationFrame(() => {
-      window.scrollTo(0, typeof pos === "number" ? pos : 0);
-    });
-  }, [currentPath]);
+  useScrollRestore(currentPath, scrollPositionsRef);
 
-  const push = (path: string) => {
-    if (path === currentPath) return;
-    actionRef.current = "push";
-    window.location.hash = path;
-  };
-  const replace = (path: string) => {
-    actionRef.current = "replace";
-    window.location.replace(`#${path}`);
-  };
-  const back = () => {
-    actionRef.current = "back";
-    window.history.back();
-  };
+  // Imperative navigation API
+  const { push, replace, back } = useImmediateNavigation({
+    ...runtime,
+    currentPath,
+  });
 
   const [route, params] = matchRoute(currentPath, routes);
 
@@ -205,14 +162,7 @@ export const RouterProvider: React.FC<{
     return arr;
   }, [animFrom, activeElement, currentPath]);
 
-  useEffect(() => {
-    if (!animFrom) return;
-    const t = setTimeout(
-      () => setAnimFrom((c) => (c === animFrom ? null : c)),
-      320,
-    );
-    return () => clearTimeout(t);
-  }, [animFrom]);
+  useOutgoingCleanup(animFrom, setAnimFrom);
 
   return (
     <RouterContext.Provider value={ctx}>
@@ -223,40 +173,13 @@ export const RouterProvider: React.FC<{
   );
 };
 
-// Helper to determine animation class for a page wrapper
-interface AnimClassArgs {
-  page: { state: "active" | "out"; key: string; node: React.ReactNode };
-
-  transition: RouterViewTransition | null;
-  animFrom: {
-    key: string;
-    node: React.ReactNode;
-    action: RouterHistoryAction;
-  } | null;
-}
-
-function getAnimClass({ page, transition, animFrom }: AnimClassArgs): string {
-  if (!transition) return "";
-  const action = transition.action;
-  if (page.state === "active") {
-    if (action === "push") return "tiny-router-slideIn";
-    if (action === "back") return "tiny-router-slideBackIn";
-    return "";
-  }
-  if (page.state === "out" && animFrom) {
-    if (animFrom.action === "push") return "tiny-router-slideOutLeft";
-    if (animFrom.action === "back") return "tiny-router-slideOutRight";
-  }
-  return "";
-}
-
 function useLazyResolver(args: {
   route: RouteConfig | undefined;
   resolvedLazy: Record<string, React.ReactNode>;
   setResolvedLazy: React.Dispatch<
     React.SetStateAction<Record<string, React.ReactNode>>
   >;
-  pendingLazyRef: React.MutableRefObject<Set<string>>;
+  pendingLazyRef: React.RefObject<Set<string>>;
   setIsLazyLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const {
@@ -289,37 +212,5 @@ function useLazyResolver(args: {
     }
   }, [route, resolvedLazy, pendingLazyRef, setResolvedLazy, setIsLazyLoading]);
 }
-
-const PageStack: React.FC<{
-  pages: Array<{ key: string; node: React.ReactNode; state: "active" | "out" }>;
-  transition: RouterViewTransition | null;
-  animFrom: {
-    key: string;
-    node: React.ReactNode;
-    action: RouterHistoryAction;
-  } | null;
-}> = ({ pages, transition, animFrom }) => (
-  <div className={"tiny-router-container"}>
-    {pages.map((p) => {
-      const animClass = getAnimClass({
-        page: p,
-        transition,
-        animFrom,
-      });
-      const base =
-        pages.length === 1 && p.state === "active"
-          ? ["tiny-router-page", "tiny-router-pageActive"]
-          : ["tiny-router-page"];
-      return (
-        <div
-          key={p.key}
-          className={[...base, animClass].filter(Boolean).join(" ")}
-        >
-          {p.node}
-        </div>
-      );
-    })}
-  </div>
-);
 
 export default RouterProvider;

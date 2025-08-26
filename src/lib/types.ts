@@ -12,6 +12,7 @@ export interface RouteConfig {
 }
 
 export type RouterHistoryAction = "push" | "replace" | "back" | "pop";
+export type TransitionType = "slideIn" | "slideBackIn" | "none";
 
 export interface RouterViewTransition {
   from: string;
@@ -19,16 +20,23 @@ export interface RouterViewTransition {
   action: RouterHistoryAction;
   fromElement?: React.ReactNode;
   toElement?: React.ReactNode;
+  /** Optional per-navigation transition override name. */
+  customTransition?: TransitionType;
 }
 
 export interface RouterContextType {
   routes: RouteConfig[];
   currentPath: string;
   params: RouteParams;
-  push: (path: string) => void;
-  replace: (path: string) => void;
+  push: (path: string, options?: NavigationOptions) => void;
+  replace: (path: string, options?: NavigationOptions) => void;
   back: () => void;
   transition: RouterViewTransition | null;
   lastPath?: string;
   isLazyLoading?: boolean;
+}
+
+export interface NavigationOptions {
+  /** Custom transition override. Use core names: 'slideIn', 'slideBackIn', or 'none' to disable. */
+  transition?: TransitionType;
 }

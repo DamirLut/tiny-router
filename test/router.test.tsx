@@ -39,6 +39,134 @@ function User() {
 }
 
 describe("RouterProvider integration", () => {
+  it("applies custom transition override (slideBackIn) on push", async () => {
+    window.location.hash = "#/";
+    function A() {
+      const { push } = useRouter();
+      return (
+        <div>
+          <div>A</div>
+          <button onClick={() => push("/b", { transition: "slideBackIn" })}>
+            GoB
+          </button>
+        </div>
+      );
+    }
+    function B() {
+      const t = useViewTransition();
+      return (
+        <div>
+          <div>B</div>
+          <div data-testid="transition-name" data-action={t?.action}>
+            {t?.customTransition || ""}
+          </div>
+        </div>
+      );
+    }
+    render(
+      <RouterProvider
+        routes={[
+          { path: "/", element: <A /> },
+          { path: "/b", element: <B /> },
+        ]}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByText("GoB"));
+      window.location.hash = "#/b";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    await waitFor(() => expect(screen.getByText("B")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId("transition-name").textContent).toBe(
+        "slideBackIn",
+      ),
+    );
+  });
+
+  it("disables animation with transition: none", async () => {
+    window.location.hash = "#/";
+    function A() {
+      const { push } = useRouter();
+      return (
+        <div>
+          <div>A</div>
+          <button onClick={() => push("/b", { transition: "none" })}>
+            GoB
+          </button>
+        </div>
+      );
+    }
+    function B() {
+      const t = useViewTransition();
+      return (
+        <div>
+          <div>B</div>
+          <div data-testid="transition-name">{t?.customTransition || ""}</div>
+        </div>
+      );
+    }
+    render(
+      <RouterProvider
+        routes={[
+          { path: "/", element: <A /> },
+          { path: "/b", element: <B /> },
+        ]}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByText("GoB"));
+      window.location.hash = "#/b";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    await waitFor(() => expect(screen.getByText("B")).toBeTruthy());
+    const container = document.querySelector(".tiny-router-container");
+    expect(
+      container?.innerHTML.includes("tiny-router-slideIn") ||
+        container?.innerHTML.includes("tiny-router-slideBackIn"),
+    ).toBe(false);
+  });
+
+  it("applies custom slideIn override (explicit) instead of default push animation", async () => {
+    window.location.hash = "#/";
+    function A() {
+      const { push } = useRouter();
+      return (
+        <div>
+          <div>A</div>
+          <button onClick={() => push("/b", { transition: "slideIn" })}>
+            GoB
+          </button>
+        </div>
+      );
+    }
+    function B() {
+      const t = useViewTransition();
+      return (
+        <div>
+          <div>B</div>
+          <div data-testid="transition-name">{t?.customTransition || ""}</div>
+        </div>
+      );
+    }
+    render(
+      <RouterProvider
+        routes={[
+          { path: "/", element: <A /> },
+          { path: "/b", element: <B /> },
+        ]}
+      />,
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByText("GoB"));
+      window.location.hash = "#/b";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    await waitFor(() => expect(screen.getByText("B")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByTestId("transition-name").textContent).toBe("slideIn"),
+    );
+  });
   it("navigates push + replace + back with transition metadata", async () => {
     window.location.hash = "#/";
     render(
@@ -68,7 +196,8 @@ describe("RouterProvider integration", () => {
     });
     // Back should go to home
     await act(async () => {
-      fireEvent.click(screen.getByText("Back"));
+      const backs = screen.getAllByText("Back");
+      fireEvent.click(backs[backs.length - 1]);
       // Simulate hashchange triggered by history.back in environment
       window.location.hash = "#/";
       window.dispatchEvent(new HashChangeEvent("hashchange"));
@@ -87,7 +216,6 @@ describe("RouterProvider integration", () => {
       <RouterProvider
         routes={[{ path: "/", element: <Home /> }]}
         notFound={<NotFound />}
-        disablePreview
       />,
     );
     await waitFor(() => {
@@ -102,10 +230,7 @@ describe("RouterProvider integration", () => {
       element: <div>User {i + 1}</div>,
     }));
     render(
-      <RouterProvider
-        routes={[{ path: "/", element: <Home /> }, ...pushes]}
-        disablePreview
-      />,
+      <RouterProvider routes={[{ path: "/", element: <Home /> }, ...pushes]} />,
     );
     for (let i = 0; i < pushes.length; i++) {
       await act(async () => {
@@ -117,40 +242,6 @@ describe("RouterProvider integration", () => {
         expect(all.length > 0).toBeTruthy();
       });
     }
-  });
-
-  it("disables swipe preview when disablePreview", async () => {
-    window.location.hash = "#/";
-    render(
-      <RouterProvider
-        routes={[
-          { path: "/", element: <Home /> },
-          { path: "/user/:id", element: <User /> },
-        ]}
-        disablePreview
-      />,
-    );
-    // Attempt to start swipe (internal state not exposed; we rely on absence of transition change during synthetic gesture)
-    const startEvent = new TouchEvent("touchstart", {
-      touches: [
-        new Touch({
-          identifier: 1,
-          target: document.body,
-          clientX: 0,
-          clientY: 10,
-        }),
-      ],
-    });
-    window.dispatchEvent(startEvent);
-    // Navigate via push to confirm normal still works
-    await act(async () => {
-      window.location.hash = "#/user/11";
-      window.dispatchEvent(new HashChangeEvent("hashchange"));
-    });
-    await waitFor(() => {
-      const nodes = screen.getAllByText("User 11");
-      expect(nodes.length > 0).toBeTruthy();
-    });
   });
 
   it("restores scroll position when navigating back", async () => {
@@ -186,7 +277,6 @@ describe("RouterProvider integration", () => {
           { path: "/a", element: <Page name="A" /> },
           { path: "/b", element: <Page name="B" /> },
         ]}
-        disablePreview
       />,
     );
 
@@ -212,7 +302,8 @@ describe("RouterProvider integration", () => {
 
     // Go back to /a
     await act(async () => {
-      fireEvent.click(screen.getByText("Back"));
+      const backs2 = screen.getAllByText("Back");
+      fireEvent.click(backs2[backs2.length - 1]);
       window.location.hash = "#/a";
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
@@ -252,7 +343,6 @@ describe("RouterProvider integration", () => {
           { path: "/x", element: <P name="GoY" to="/y" /> },
           { path: "/y", element: <div>Y</div> },
         ]}
-        disablePreview
       />,
     );
 
