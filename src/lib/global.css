@@ -1,10 +1,10 @@
-.container {
+.tiny-router-container {
   position: relative;
   width: 100%;
   min-height: 100vh; /* ensure visible height */
   overflow: hidden;
 }
-.page {
+.tiny-router-page {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -13,7 +13,7 @@
   will-change: transform;
   pointer-events: auto;
 }
-.pageActive {
+.tiny-router-pageActive {
   /* active page in normal flow when no stacking */
   position: relative;
   inset: auto;
@@ -51,15 +51,15 @@
     transform: translateX(0);
   }
 }
-.slideIn {
+.tiny-router-slideIn {
   animation: tr-slide-in 280ms cubic-bezier(0.32, 0.72, 0.37, 1);
 }
-.slideBackIn {
+.tiny-router-slideBackIn {
   animation: tr-slide-back-in 260ms cubic-bezier(0.32, 0.72, 0.37, 1);
 }
-.slideOutLeft {
+.tiny-router-slideOutLeft {
   animation: tr-slide-out-left 300ms cubic-bezier(0.32, 0.72, 0.37, 1);
 }
-.slideOutRight {
+.tiny-router-slideOutRight {
   animation: tr-slide-out-right 260ms cubic-bezier(0.32, 0.72, 0.37, 1);
 }

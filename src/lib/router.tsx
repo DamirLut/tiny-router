@@ -15,7 +15,7 @@ import type {
   RouterViewTransition,
 } from "./types";
 
-import styles from "./router.module.css";
+import "./global.css";
 
 const parseHash = (): string => window.location.hash.replace(/^#/, "") || "/";
 
@@ -239,13 +239,13 @@ function getAnimClass({ page, transition, animFrom }: AnimClassArgs): string {
   if (!transition) return "";
   const action = transition.action;
   if (page.state === "active") {
-    if (action === "push") return styles.slideIn;
-    if (action === "back") return styles.slideBackIn;
+    if (action === "push") return "tiny-router-slideIn";
+    if (action === "back") return "tiny-router-slideBackIn";
     return "";
   }
   if (page.state === "out" && animFrom) {
-    if (animFrom.action === "push") return styles.slideOutLeft;
-    if (animFrom.action === "back") return styles.slideOutRight;
+    if (animFrom.action === "push") return "tiny-router-slideOutLeft";
+    if (animFrom.action === "back") return "tiny-router-slideOutRight";
   }
   return "";
 }
@@ -299,7 +299,7 @@ const PageStack: React.FC<{
     action: RouterHistoryAction;
   } | null;
 }> = ({ pages, transition, animFrom }) => (
-  <div className={styles.container}>
+  <div className={"tiny-router-container"}>
     {pages.map((p) => {
       const animClass = getAnimClass({
         page: p,
@@ -308,8 +308,8 @@ const PageStack: React.FC<{
       });
       const base =
         pages.length === 1 && p.state === "active"
-          ? [styles.page, styles.pageActive]
-          : [styles.page];
+          ? ["tiny-router-page", "tiny-router-pageActive"]
+          : ["tiny-router-page"];
       return (
         <div
           key={p.key}
