@@ -41,7 +41,7 @@ async function run() {
   await rename(produced, join(dist, "index.js"));
 
   console.log("• Copying CSS");
-  await cp("src/lib/router.module.css", join(dist, "router.module.css"));
+  await cp("src/lib/global.css", join(dist, "global.css"));
 
   // Remove temp dir
   await cleanDir(temp);
