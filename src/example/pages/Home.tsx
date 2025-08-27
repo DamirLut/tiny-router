@@ -12,12 +12,23 @@ export default function Home() {
     <div>
       <div className="navbar">
         <h1>Dashboard</h1>
-        <button
-          onClick={() => push("/settings")}
-          style={{ position: "absolute", right: 16, top: 14 }}
+        <div
+          style={{
+            position: "absolute",
+            right: 16,
+            top: 10,
+            display: "flex",
+            gap: 8,
+          }}
         >
-          ⚙️
-        </button>
+          <button onClick={() => push("/settings")}>⚙️</button>
+          <button
+            title="Open settings with reverse (slideBackIn) animation"
+            onClick={() => push("/settings", { transition: "slideBackIn" })}
+          >
+            ◀️
+          </button>
+        </div>
       </div>
       <div className="section-title">Users</div>
       <ul className="list">
@@ -25,7 +36,11 @@ export default function Home() {
           <li
             key={u.id}
             className="list-item"
-            onClick={() => push(`/user/${u.id}`)}
+            onClick={() =>
+              push(`/user/${u.id}`, {
+                transition: Number(u.id) % 2 === 0 ? "slideBackIn" : undefined,
+              })
+            }
           >
             {u.name}
             <span className="badge">{u.id}</span>
@@ -38,14 +53,17 @@ export default function Home() {
           <div
             key={u.id}
             className="card"
-            onClick={() => push(`/user/${u.id}`)}
+            onClick={() =>
+              push(`/user/${u.id}`, {
+                transition: Number(u.id) % 2 === 0 ? "slideBackIn" : undefined,
+              })
+            }
           >
             <h3>{u.name}</h3>
             <p>{u.bio.slice(0, 60)}…</p>
           </div>
         ))}
       </div>
-      <div className="footer-hint">Swipe от левого края для back</div>
     </div>
   );
 }

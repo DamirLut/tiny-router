@@ -60,6 +60,18 @@ export function ExampleApp() {
           </div>
         }
       />
+      <div
+        style={{
+          position: "fixed",
+          bottom: 8,
+          right: 8,
+          fontSize: 11,
+          opacity: 0.7,
+        }}
+      >
+        Demo: некоторые переходы вызываются с custom transition (slideBackIn /
+        none)
+      </div>
     </div>
   );
 }

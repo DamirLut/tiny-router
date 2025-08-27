@@ -7,14 +7,7 @@ import React, {
 } from "react";
 
 import { PageStack } from "./internal/animation";
-import type { RouterRuntime } from "./internal/hooks";
-import {
-  useHashListener,
-  useImmediateNavigation,
-  useOutgoingCleanup,
-  useScrollRestore,
-} from "./internal/hooks";
-import { applyHistoryMutation, recordScroll } from "./internal/nav";
+import { RouterController } from "./internal/controller";
 import { RouterContext } from "./context";
 import { matchRoute } from "./match";
 import type {
@@ -28,35 +21,10 @@ import { parseHash } from "./utils";
 
 import "./global.css";
 
-// runtime builder hook
-function useRouterRuntime(
-  base: Pick<
-    RouterRuntime,
-    | "routes"
-    | "notFound"
-    | "resolveRendered"
-    | "skipNextHashRef"
-    | "currentPathRef"
-    | "historyRef"
-    | "actionRef"
-    | "setCurrentPath"
-    | "scrollPositionsRef"
-    | "customAnimRef"
-    | "setTransition"
-    | "setAnimFrom"
-  >,
-): RouterRuntime {
-  return {
-    ...base,
-    recordScroll,
-    applyHistoryMutation,
-  } as RouterRuntime;
-}
-
 interface RouterProviderProps {
   routes: RouteConfig[];
   notFound?: React.ReactNode;
-  lazySpinner?: React.ReactNode; // Element shown globally while any lazy route first-loads.
+  lazySpinner?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -67,7 +35,6 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
   children,
 }: RouterProviderProps) => {
   const [currentPath, setCurrentPath] = useState(parseHash());
-  const currentPathRef = useRef(currentPath);
   const [transition, setTransition] = useState<RouterViewTransition | null>(
     null,
   );
@@ -76,50 +43,55 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
   >({});
   const pendingLazyRef = useRef<Set<string>>(new Set());
   const [isLazyLoading, setIsLazyLoading] = useState(false);
-  const historyRef = useRef<string[]>([parseHash()]);
-  const actionRef = useRef<RouterHistoryAction>("push");
-  const skipNextHashRef = useRef(false);
-  const scrollPositionsRef = useRef<Record<string, number>>({});
   const [animFrom, setAnimFrom] = useState<{
     key: string;
     node: React.ReactNode;
     action: RouterHistoryAction;
   } | null>(null);
-
+  const controllerRef = useRef<RouterController | null>(null);
   const resolveRendered = useCallback(
     (r: RouteConfig): React.ReactNode => resolvedLazy[r.path] ?? r.element,
     [resolvedLazy],
   );
-  // Per-navigation custom animation override (consumed once at transition creation)
-  const customAnimRef = useRef<NavigationOptions["transition"] | undefined>(
-    undefined,
+
+  useEffect(() => {
+    const ctrl = new RouterController(
+      {
+        routes,
+        notFound,
+        resolveRendered,
+        setCurrentPath,
+        setTransition,
+        setAnimFrom,
+        getScrollPos: () =>
+          window.scrollY ||
+          document.documentElement.scrollTop ||
+          document.body.scrollTop ||
+          0,
+      },
+      currentPath,
+    );
+    controllerRef.current = ctrl;
+    ctrl.attach();
+    return () => ctrl.detach();
+  }, [routes, notFound]);
+
+  // Update resolveRendered function in controller when lazy modules resolve
+  useEffect(() => {
+    controllerRef.current?.setResolveRendered(resolveRendered);
+  }, [resolveRendered]);
+
+  const push = useCallback(
+    (path: string, options?: NavigationOptions) =>
+      controllerRef.current?.push(path, options),
+    [],
   );
-
-  // Wire hashchange listener via hook
-  const runtime = useRouterRuntime({
-    routes,
-    notFound,
-    resolveRendered,
-    skipNextHashRef,
-    currentPathRef,
-    historyRef,
-    actionRef,
-    setCurrentPath,
-    scrollPositionsRef,
-    customAnimRef,
-    setTransition,
-    setAnimFrom,
-  });
-  useHashListener(runtime);
-
-  // Scroll restoration
-  useScrollRestore(currentPath, scrollPositionsRef);
-
-  // Imperative navigation API
-  const { push, replace, back } = useImmediateNavigation({
-    ...runtime,
-    currentPath,
-  });
+  const replace = useCallback(
+    (path: string, options?: NavigationOptions) =>
+      controllerRef.current?.replace(path, options),
+    [],
+  );
+  const back = useCallback(() => controllerRef.current?.back(), []);
 
   const [route, params] = matchRoute(currentPath, routes);
 
@@ -162,7 +134,7 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
     return arr;
   }, [animFrom, activeElement, currentPath]);
 
-  useOutgoingCleanup(animFrom, setAnimFrom);
+  // outgoing cleanup handled by controller internal timeout
 
   return (
     <RouterContext.Provider value={ctx}>
