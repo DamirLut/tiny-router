@@ -48,6 +48,7 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
     node: React.ReactNode;
     action: RouterHistoryAction;
   } | null>(null);
+  const [history, setHistory] = useState<string[]>([]);
   const controllerRef = useRef<RouterController | null>(null);
   const resolveRendered = useCallback(
     (r: RouteConfig): React.ReactNode => resolvedLazy[r.path] ?? r.element,
@@ -72,14 +73,18 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
       currentPath,
     );
     controllerRef.current = ctrl;
+    setHistory(ctrl.getHistory());
     ctrl.attach();
     return () => ctrl.detach();
   }, [routes, notFound]);
 
-  // Update resolveRendered function in controller when lazy modules resolve
   useEffect(() => {
-    controllerRef.current?.setResolveRendered(resolveRendered);
-  }, [resolveRendered]);
+    const ctrl = controllerRef.current;
+    if (!ctrl) return;
+    const updateHistory = () => setHistory(ctrl.getHistory());
+    window.addEventListener("hashchange", updateHistory);
+    return () => window.removeEventListener("hashchange", updateHistory);
+  }, []);
 
   const push = useCallback(
     (path: string, options?: NavigationOptions) =>
@@ -113,6 +118,7 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
     transition,
     lastPath: transition?.from,
     isLazyLoading,
+    history,
   };
 
   const activeElement = route ? resolveRendered(route) : notFound;

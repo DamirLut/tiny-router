@@ -34,6 +34,8 @@ export interface RouterContextType {
   transition: RouterViewTransition | null;
   lastPath?: string;
   isLazyLoading?: boolean;
+  /** Navigation history */
+  history: string[];
 }
 
 export interface NavigationOptions {

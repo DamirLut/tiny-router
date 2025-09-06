@@ -365,3 +365,51 @@ describe("RouterProvider integration", () => {
     window.scrollTo = origScrollTo;
   });
 });
+
+describe("useRouter history access", () => {
+  it("exposes navigation history", async () => {
+    window.location.hash = "#/";
+
+    function Home() {
+      const { push, history } = useRouter();
+      return (
+        <div>
+          <h1>Home</h1>
+          <button onClick={() => push("/about")}>Go to About</button>
+          <div data-testid="history">{JSON.stringify(history)}</div>
+        </div>
+      );
+    }
+
+    function About() {
+      const { history } = useRouter();
+      return <div data-testid="history">{JSON.stringify(history)}</div>;
+    }
+
+    render(
+      <RouterProvider
+        routes={[
+          { path: "/", element: <Home /> },
+          { path: "/about", element: <About /> },
+        ]}
+      />,
+    );
+
+    // Initial history
+    expect(screen.getByTestId("history").textContent).toBe(JSON.stringify(["/"]));
+
+    // Navigate to About
+    await act(async () => {
+      fireEvent.click(screen.getByText("Go to About"));
+      window.location.hash = "#/about";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+
+    // Updated history
+    await waitFor(() => {
+      expect(screen.getByTestId("history").textContent).toBe(
+        JSON.stringify(["/", "/about"]),
+      );
+    });
+  });
+});

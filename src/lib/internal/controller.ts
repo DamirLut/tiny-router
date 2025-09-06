@@ -135,4 +135,8 @@ export class RouterController {
     this.history.setAction("back");
     window.history.back();
   }
+
+  getHistory(): string[] {
+    return this.history.getStack();
+  }
 }

@@ -13,8 +13,8 @@
   "scripts": {
     "dev": "vite",
     "build:lib": "bun run build.ts",
-    "lint": "bunx eslint .",
-    "lint:fix": "bunx eslint . --fix",
+    "lint": "bunx --bun eslint .",
+    "lint:fix": "bunx --bun eslint . --fix",
     "preview": "vite preview",
     "test": "bun test",
     "test:cov": "bun test --coverage",
