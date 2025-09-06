@@ -37,8 +37,12 @@ export class RouterController {
   private orchestrator: TransitionOrchestrator;
   private customAnim?: NavigationOptions["transition"];
   private detachFn?: () => void;
+  private notifyHistoryChange: () => void;
 
-  constructor(deps: ControllerDeps, initialPath: string) {
+  constructor(
+    deps: ControllerDeps & { notifyHistoryChange: () => void },
+    initialPath: string,
+  ) {
     this.routes = deps.routes;
     this.notFound = deps.notFound;
     this.resolveRendered = deps.resolveRendered;
@@ -53,6 +57,7 @@ export class RouterController {
       setAnimFrom: deps.setAnimFrom,
       durationMs: deps.transitionDuration ?? 320,
     });
+    this.notifyHistoryChange = deps.notifyHistoryChange;
   }
 
   setResolveRendered(fn: (r: RouteConfig) => React.ReactNode) {
@@ -79,6 +84,7 @@ export class RouterController {
 
   private applyHistoryMutation(newPath: string) {
     this.history.navigateMutate(newPath);
+    this.notifyHistoryChange();
   }
 
   private buildAndApplyTransition(
@@ -119,6 +125,7 @@ export class RouterController {
     this.recordScroll(oldPath);
     this.buildAndApplyTransition(oldPath, path, this.history.getAction());
     this.finalizeNavigation(path);
+    this.notifyHistoryChange();
   }
 
   push(path: string, options?: NavigationOptions) {

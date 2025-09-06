@@ -69,6 +69,7 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
           document.documentElement.scrollTop ||
           document.body.scrollTop ||
           0,
+        notifyHistoryChange: () => setHistory(ctrl.getHistory()),
       },
       currentPath,
     );
