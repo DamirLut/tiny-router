@@ -215,7 +215,7 @@ describe("RouterProvider integration", () => {
     render(
       <RouterProvider
         routes={[{ path: "/", element: <Home /> }]}
-        notFound={<NotFound />}
+        notFound={NotFound}
       />,
     );
     await waitFor(() => {
@@ -396,7 +396,9 @@ describe("useRouter history access", () => {
     );
 
     // Initial history
-    expect(screen.getByTestId("history").textContent).toBe(JSON.stringify(["/"]));
+    expect(screen.getByTestId("history").textContent).toBe(
+      JSON.stringify(["/"]),
+    );
 
     // Navigate to About
     await act(async () => {

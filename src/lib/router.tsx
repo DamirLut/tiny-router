@@ -23,14 +23,14 @@ import "./global.css";
 
 interface RouterProviderProps {
   routes: RouteConfig[];
-  notFound?: React.ReactNode;
+  notFound?: React.FC;
   lazySpinner?: React.ReactNode;
   children?: React.ReactNode;
 }
 
 export const RouterProvider: React.FC<RouterProviderProps> = ({
   routes,
-  notFound,
+  notFound: NotFound,
   lazySpinner,
   children,
 }: RouterProviderProps) => {
@@ -59,7 +59,7 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
     const ctrl = new RouterController(
       {
         routes,
-        notFound,
+        notFound: NotFound ? <NotFound /> : undefined,
         resolveRendered,
         setCurrentPath,
         setTransition,
@@ -77,7 +77,7 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
     setHistory(ctrl.getHistory());
     ctrl.attach();
     return () => ctrl.detach();
-  }, [routes, notFound]);
+  }, [routes, NotFound]);
 
   useEffect(() => {
     const ctrl = controllerRef.current;
@@ -122,7 +122,11 @@ export const RouterProvider: React.FC<RouterProviderProps> = ({
     history,
   };
 
-  const activeElement = route ? resolveRendered(route) : notFound;
+  const activeElement = route ? (
+    resolveRendered(route)
+  ) : NotFound ? (
+    <NotFound />
+  ) : null;
 
   const pages = useMemo(() => {
     const arr: Array<{
