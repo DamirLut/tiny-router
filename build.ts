@@ -19,7 +19,7 @@ async function run() {
 
   console.log("• Emitting type declarations");
   // tsc will output declarations to dist (configured in tsconfig.lib.json)
-  await $`tsc -p tsconfig.lib.json --emitDeclarationOnly`;
+  await $`bunx tsc -p tsconfig.lib.json --emitDeclarationOnly`;
 
   console.log("• Bundling single JS file with Bun.build");
   const result = await Bun.build({
