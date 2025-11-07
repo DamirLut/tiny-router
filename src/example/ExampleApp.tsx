@@ -39,7 +39,7 @@ export function ExampleApp() {
     <div className="example-shell">
       <RouterProvider
         routes={routes}
-        notFound={<NotFoundRedirect />}
+        notFound={NotFoundRedirect}
         lazySpinner={
           <div
             style={{
